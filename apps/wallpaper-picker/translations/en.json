@@ -2,8 +2,27 @@
   "apps": {
     "wallpaper-picker": {
       "title": "Wallpapers",
-      "hint": "← → browse · Enter apply · Esc close",
-      "empty": "No wallpapers in {dir}"
+      "hint": "← → browse · Enter apply · Ctrl+F favorite · Esc close",
+      "empty": "No wallpapers in {dir}",
+      "no-match": "No wallpapers match “{query}”",
+      "search": "Search wallpapers",
+      "favorite": "Add to favorites",
+      "unfavorite": "Remove from favorites",
+      "palette-global": "Global palette",
+      "folder": {
+        "root": "{name}",
+        "all": "All subfolders"
+      },
+      "monitor": {
+        "all": "All screens"
+      },
+      "sort": {
+        "name-asc": "Name A–Z",
+        "name-desc": "Name Z–A",
+        "newest": "Newest",
+        "oldest": "Oldest",
+        "random": "Random"
+      }
     }
   }
 }

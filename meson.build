@@ -9,11 +9,11 @@ project('okaru-wallpaper-picker', 'cpp',
 # El núcleo y sus bibliotecas son privados (/usr/lib/okaru): se enlazan con su ruta en el binario.
 okaru_core = dependency('okaru-core')
 _okaru_libdir = get_option('prefix') / get_option('libdir') / 'okaru'
-_deps = [okaru_core]
+_deps = [okaru_core, dependency('tomlplusplus')]
 _inc = include_directories('src')
 _args = ['-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow']
 
-_logic = files('src/apps/wallpaper_picker/carousel.cpp')
+_logic = files('src/apps/wallpaper_picker/carousel.cpp', 'src/apps/wallpaper_picker/entries.cpp')
 
 executable('okaru-wallpaper-picker',
   sources: files('src/apps/wallpaper_picker/picker_window.cpp', 'src/apps/wallpaper_picker/main.cpp') + _logic,
@@ -32,6 +32,13 @@ install_data('assets/dev.okaru.WallpaperPicker.desktop', install_dir: get_option
 if get_option('tests').allowed()
   test('okaru_wallpaper_picker_carousel', executable('okaru_wallpaper_picker_carousel_test',
     sources: files('tests/okaru_wallpaper_picker_carousel_test.cpp') + _logic,
+    include_directories: _inc,
+    dependencies: _deps,
+    build_rpath: _okaru_libdir,
+    override_options: ['b_ndebug=false'],
+  ))
+  test('okaru_wallpaper_picker_entries', executable('okaru_wallpaper_picker_entries_test',
+    sources: files('tests/okaru_wallpaper_picker_entries_test.cpp') + _logic,
     include_directories: _inc,
     dependencies: _deps,
     build_rpath: _okaru_libdir,
