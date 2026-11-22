@@ -13,8 +13,12 @@ namespace okaru::wallpaper_picker {
     std::size_t index = 0;
     float offset = 0.0F;
     float scale = 1.0F;
-    float opacity = 1.0F;
+    float brightness = 1.0F; // las lejanas se oscurecen (opacas: no dejan ver la de detrás)
   };
+
+  // Los índices 0..count-1 de dentro hacia fuera a partir de `start` (start, start+1, start-1, start+2…): el orden en
+  // que se precargan las miniaturas, primero las que se van a ver.
+  [[nodiscard]] std::vector<std::size_t> outwardOrder(std::size_t count, std::size_t start);
 
   class Carousel {
   public:

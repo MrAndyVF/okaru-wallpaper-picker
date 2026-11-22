@@ -1,7 +1,28 @@
 {
   "apps": {
     "wallpaper-picker": {
-      "title": "Fondos de pantalla"
+      "title": "Fondos de pantalla",
+      "hint": "← → recorrer · Enter aplicar · Ctrl+F favorito · Esc cerrar",
+      "empty": "No hay fondos en {dir}",
+      "no-match": "Ningún fondo coincide con «{query}»",
+      "search": "Buscar fondos",
+      "favorite": "Añadir a favoritos",
+      "unfavorite": "Quitar de favoritos",
+      "palette-global": "Paleta global",
+      "folder": {
+        "root": "{name}",
+        "all": "Todas las subcarpetas"
+      },
+      "monitor": {
+        "all": "Todas las pantallas"
+      },
+      "sort": {
+        "name-asc": "Nombre A–Z",
+        "name-desc": "Nombre Z–A",
+        "newest": "Más nuevos",
+        "oldest": "Más antiguos",
+        "random": "Aleatorio"
+      }
     }
   }
 }

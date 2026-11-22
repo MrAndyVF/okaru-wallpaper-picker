@@ -9,7 +9,7 @@ license=(MIT)
 # Sin ABI estable: depende de la versión exacta del núcleo con el que se compiló (la instalada al compilar).
 _core=$(pacman -Q okaru-core 2>/dev/null | cut -d' ' -f2)
 depends=("okaru-core${_core:+=$_core}")
-makedepends=(meson ninja pkgconf okaru-core)
+makedepends=(meson ninja pkgconf okaru-core tomlplusplus)
 options=('!debug' '!lto')
 source=("okaru-wallpaper-picker::git+file://${OKARU_WALLPAPER_PICKER_REPO:-$HOME/Projects/okaru-project/okaru-wallpaper-picker}#branch=main")
 sha256sums=(SKIP)

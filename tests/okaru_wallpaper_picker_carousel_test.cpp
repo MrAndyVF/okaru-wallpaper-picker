@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <vector>
 
 using okaru::wallpaper_picker::Carousel;
 
@@ -29,10 +30,16 @@ int main() {
   const auto slots = carousel.slots(1.0F);
   assert(slots.size() == 3);
   assert(slots.back().index == 2 && slots.back().offset == 0.0F && slots.back().scale == 1.0F);
-  assert(slots.front().scale < 1.0F && slots.front().opacity < 1.0F);
+  assert(slots.front().scale < 1.0F && slots.front().brightness < 1.0F);
 
   // Menos tarjetas: la selección se ajusta.
   carousel.setCount(2);
   assert(carousel.index() == 1);
+
+  // Orden de precarga: de dentro hacia fuera, sin repetir ni saltarse ninguno.
+  using okaru::wallpaper_picker::outwardOrder;
+  assert(outwardOrder(0, 3).empty());
+  assert((outwardOrder(5, 1) == std::vector<std::size_t>{1, 2, 0, 3, 4}));
+  assert((outwardOrder(4, 9) == std::vector<std::size_t>{3, 2, 1, 0})); // start fuera de rango: la última
   return 0;
 }
