@@ -7,14 +7,16 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <string>
+#include <string_view>
 #include <sys/file.h>
 #include <unistd.h>
 
 namespace {
 
-  // Una sola instancia: si ya hay una abierta, se cierra y esta termina (el atajo abre y cierra el selector).
-  // Devuelve false si había otra. El descriptor queda abierto (y con el candado) mientras viva el proceso.
-  bool claimSingleInstance() {
+  // Una sola instancia, residente: si ya hay una, se le pide que se muestre u oculte (SIGUSR1) y esta termina; así
+  // el atajo abre al instante. Devuelve false si había otra. El descriptor queda abierto (y con el candado) mientras
+  // viva el proceso.
+  bool claimSingleInstance(bool toggleRunning) {
     const char* runtime = std::getenv("XDG_RUNTIME_DIR");
     if (runtime == nullptr || runtime[0] == '\0') {
       return true;
@@ -28,8 +30,8 @@ namespace {
       char buffer[32] = {};
       const ssize_t count = ::pread(fd, buffer, sizeof(buffer) - 1, 0);
       const long pid = count > 0 ? std::strtol(buffer, nullptr, 10) : 0;
-      if (pid > 1) {
-        ::kill(static_cast<pid_t>(pid), SIGTERM);
+      if (pid > 1 && toggleRunning) {
+        ::kill(static_cast<pid_t>(pid), SIGUSR1);
       }
       ::close(fd);
       return false;
@@ -43,8 +45,10 @@ namespace {
 
 } // namespace
 
-int main() {
-  if (!claimSingleInstance()) {
+int main(int argc, char** argv) {
+  // --daemon: arrancar oculto (la shell lo precarga al iniciar la sesión). Si ya hay uno, no se alterna.
+  const bool daemon = argc > 1 && std::string_view(argv[1]) == "--daemon";
+  if (!claimSingleInstance(!daemon)) {
     return 0;
   }
   std::setlocale(LC_ALL, "");
@@ -56,7 +60,9 @@ int main() {
       .layer = true,
       .fullscreen = true,
       .backdropOtherOutputs = true,
+      .resident = true,
+      .startHidden = daemon,
   });
-  okaru::wallpaper_picker::PickerWindow window(app);
+  okaru::wallpaper_picker::PickerWindow window(app, !daemon);
   return app.run();
 }

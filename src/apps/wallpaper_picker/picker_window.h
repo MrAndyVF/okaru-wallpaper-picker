@@ -42,7 +42,8 @@ namespace okaru::wallpaper_picker {
 
   class PickerWindow {
   public:
-    explicit PickerWindow(apps::OkaruApp& app);
+    // visible = false: arranca oculto (residente) hasta el primer SIGUSR1.
+    PickerWindow(apps::OkaruApp& app, bool visible);
     ~PickerWindow();
 
     PickerWindow(const PickerWindow&) = delete;
@@ -52,6 +53,7 @@ namespace okaru::wallpaper_picker {
     // Una tarjeta del carrusel; se reutilizan según lo que entra en pantalla.
     struct Card {
       Image* image = nullptr;
+      Box* placeholder = nullptr; // fondo de la tarjeta mientras su miniatura carga
       std::string path;          // miniatura pedida (vacía = libre)
       std::uint32_t texture = 0; // textura puesta en la imagen (0 = ninguna aún)
     };
@@ -60,7 +62,7 @@ namespace okaru::wallpaper_picker {
 
     [[nodiscard]] std::unique_ptr<Node> build(float width, float height, float scale);
     [[nodiscard]] std::unique_ptr<Node> buildToolbar(float scale);
-    [[nodiscard]] std::unique_ptr<Node> buildFavoriteRow(float scale);
+    [[nodiscard]] std::unique_ptr<Node> buildInfoCard(float scale);
     [[nodiscard]] bool onKey(const KeyboardEvent& event);
     void beforeRender(Renderer& renderer);
 
@@ -102,6 +104,10 @@ namespace okaru::wallpaper_picker {
     void clickAt(float x, float y);
     void apply();
     void close();
+    // Residente: mostrar desde cero (estado de apertura) / ocultar al terminar de cerrar o aplicar.
+    void open();
+    void finish();
+    void forgetScene();
 
     apps::OkaruApp& m_app;
     Carousel m_carousel;
@@ -130,7 +136,8 @@ namespace okaru::wallpaper_picker {
     Label* m_count = nullptr;
     Label* m_hint = nullptr;
     Label* m_empty = nullptr;
-    Node* m_favoriteRow = nullptr;
+    Node* m_infoCard = nullptr; // en la barra: nombre, posición, estrella y tema del favorito
+    Node* m_hintCard = nullptr;
     Button* m_starButton = nullptr;
     Node* m_themeControls = nullptr;
     Segmented* m_themeSegmented = nullptr;

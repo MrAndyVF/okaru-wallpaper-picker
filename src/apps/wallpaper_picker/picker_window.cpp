@@ -37,7 +37,7 @@ namespace okaru::wallpaper_picker {
   namespace {
     constexpr Logger kLog("wallpaper-picker");
 
-    constexpr float kOpenMs = 280.0F;
+    constexpr float kOpenMs = 180.0F;
     constexpr float kCloseMs = 180.0F;
     constexpr float kApplyMs = 420.0F;
     // Al aplicar: cuánto crece la central y cuánto se apartan las vecinas (en anchos de tarjeta).
@@ -65,6 +65,9 @@ namespace okaru::wallpaper_picker {
     // Un paso de la rueda: un clic de rueda clásica vale 10–15; el touchpad suma pasos pequeños.
     constexpr float kAxisStep = 10.0F;
     constexpr float kVeilAlpha = 0.02F;
+    // Fondo de la barra y de las tarjetas de texto: casi opaco para leerse sobre cualquier fondo.
+    constexpr float kCardFillAlpha = 0.9F;
+    constexpr float kInfoWidth = 240.0F; // nombre y posición en la barra
     // Miniaturas retenidas en memoria a cada lado de la selección, y cuántas se decodifican a la vez para la caché.
     constexpr std::size_t kResidentRadius = 30;
     constexpr std::size_t kPreloadInFlight = 6;
@@ -93,7 +96,7 @@ namespace okaru::wallpaper_picker {
     float lerp(float a, float b, float t) { return a + (b - a) * t; }
   } // namespace
 
-  PickerWindow::PickerWindow(apps::OkaruApp& app) : m_app(app), m_state(loadState(statePath())) {
+  PickerWindow::PickerWindow(apps::OkaruApp& app, bool visible) : m_app(app), m_state(loadState(statePath())) {
     m_seed = std::random_device{}();
     m_app.setBuild([this](float w, float h, float s) { return build(w, h, s); });
     m_app.setKeyHandler([this](const KeyboardEvent& event) { return onKey(event); });
@@ -106,8 +109,62 @@ namespace okaru::wallpaper_picker {
     m_app.setBackdropClickCallback([this] { close(); }); // clic en otra pantalla: cerrar sin cambios
     m_thumbnailSub = m_thumbnails.subscribePendingUpload([this] { m_app.requestFrame(); });
     m_scanner.setOnComplete([this] { onScanComplete(); });
-    loadEntries();
-    startTicking(); // animación de apertura
+    // Otra instancia (el atajo) alterna: mostrar desde cero u ocultar con la animación de cierre.
+    m_app.setToggleCallback([this] {
+      if (m_app.hidden()) {
+        open();
+      } else {
+        close();
+      }
+    });
+    loadEntries(); // también oculto: la carpeta queda escaneada para la primera apertura
+    if (visible) {
+      startTicking(); // animación de apertura
+    }
+  }
+
+  void PickerWindow::open() {
+    m_phase = Phase::Opening;
+    m_openProgress = 0.0F;
+    m_applyProgress = 0.0F;
+    m_query.clear();
+    m_monitorIndex = 0; // siempre «todas las pantallas» al abrir
+    m_firstScan = true; // se abre sobre el fondo actual
+    m_app.setBackdropBlur(true);
+    m_app.show();
+    loadEntries(); // la carpeta pudo cambiar (config o archivos nuevos); si no, sale de la caché del escáner
+    startTicking();
+  }
+
+  void PickerWindow::finish() {
+    m_ticker.stop();
+    m_shellPreload.stop();
+    forgetScene();
+    m_app.hide(); // residente: el proceso sigue para la próxima apertura
+  }
+
+  void PickerWindow::forgetScene() {
+    for (Card& card : m_cards) {
+      releaseCard(card);
+      card.image = nullptr;
+      card.placeholder = nullptr;
+    }
+    m_root = nullptr;
+    m_veil = nullptr;
+    m_toolbar = nullptr;
+    m_search = nullptr;
+    m_folderSelect = nullptr;
+    m_name = nullptr;
+    m_count = nullptr;
+    m_hint = nullptr;
+    m_empty = nullptr;
+    m_infoCard = nullptr;
+    m_hintCard = nullptr;
+    m_starButton = nullptr;
+    m_themeControls = nullptr;
+    m_themeSegmented = nullptr;
+    m_sourceSelect = nullptr;
+    m_paletteSelect = nullptr;
   }
 
   PickerWindow::~PickerWindow() {
@@ -425,6 +482,13 @@ namespace okaru::wallpaper_picker {
 
     const float radius = Style::scaledRadiusLg(scale) * 1.5F;
     for (Card& card : m_cards) {
+      root->addChild(ui::box({
+          .out = &card.placeholder,
+          .fill = colorSpecFromRole(ColorRole::SurfaceContainerHigh, 0.7F),
+          .radius = radius,
+          .participatesInLayout = false,
+      }));
+      card.placeholder->setHitTestVisible(false);
       root->addChild(ui::image({
           .out = &card.image,
           .fit = ImageFit::Cover,
@@ -434,25 +498,24 @@ namespace okaru::wallpaper_picker {
       card.image->setHitTestVisible(false);
     }
 
-    root->addChild(ui::label({
-        .out = &m_name,
-        .fontSize = Style::fontSizeTitle * scale,
-        .color = colorSpecFromRole(ColorRole::OnSurface),
-        .maxLines = 1,
-    }));
-    root->addChild(ui::label({
-        .out = &m_count,
-        .fontSize = Style::fontSizeCaption * scale,
-        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-        .maxLines = 1,
-    }));
-    root->addChild(ui::label({
+    // La ayuda, en una pastilla como la barra (sobre un fondo claro u oscuro se lee igual).
+    auto hint = ui::row({
+        .align = FlexAlign::Center,
+        .paddingV = Style::spaceXs * scale,
+        .paddingH = Style::spaceMd * scale,
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer, kCardFillAlpha),
+        .radius = Style::scaledRadiusLg(scale),
+    });
+    m_hintCard = hint.get();
+    hint->addChild(ui::label({
         .out = &m_hint,
         .text = tr("apps.wallpaper-picker.hint"),
         .fontSize = Style::fontSizeCaption * scale,
         .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
         .maxLines = 1,
     }));
+    hint->setZIndex(100);
+    root->addChild(std::move(hint));
     root->addChild(ui::label({
         .out = &m_empty,
         .fontSize = Style::fontSizeBody * scale,
@@ -460,7 +523,6 @@ namespace okaru::wallpaper_picker {
         .maxLines = 2,
     }));
     root->addChild(buildToolbar(scale));
-    root->addChild(buildFavoriteRow(scale));
     m_app.setAfterBuild([this] {
       if (m_search != nullptr) {
         m_app.focus(m_search->inputArea()); // escribir busca directamente
@@ -481,7 +543,7 @@ namespace okaru::wallpaper_picker {
         .align = FlexAlign::Center,
         .gap = Style::spaceSm * scale,
         .padding = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
+        .fill = colorSpecFromRole(ColorRole::SurfaceContainer, kCardFillAlpha),
         .radius = Style::scaledRadiusLg(scale),
     });
     m_toolbar = toolbar.get();
@@ -512,14 +574,33 @@ namespace okaru::wallpaper_picker {
         .width = 170.0F * scale,
         .onSelectionChanged = [this](std::size_t index, std::string_view) { m_monitorIndex = index; },
     }));
+    toolbar->addChild(buildInfoCard(scale));
     toolbar->setZIndex(200);
     return toolbar;
   }
 
-  std::unique_ptr<Node> PickerWindow::buildFavoriteRow(float scale) {
-    auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
-    m_favoriteRow = row.get();
-    row->addChild(ui::button({
+  std::unique_ptr<Node> PickerWindow::buildInfoCard(float scale) {
+    // Parte derecha de la barra: nombre y posición del fondo central (ancho fijo: la barra no cambia de tamaño al
+    // recorrer), su estrella y, si es favorito, el tema que se aplica con él.
+    auto info = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
+    m_infoCard = info.get();
+    info->addChild(ui::separator({.orientation = SeparatorOrientation::VerticalRule, .height = 28.0F * scale}));
+    auto text = ui::column({.align = FlexAlign::Start, .gap = 0.0F, .width = kInfoWidth * scale});
+    text->addChild(ui::label({
+        .out = &m_name,
+        .fontSize = Style::fontSizeBody * scale,
+        .color = colorSpecFromRole(ColorRole::OnSurface),
+        .maxWidth = kInfoWidth * scale,
+        .maxLines = 1,
+    }));
+    text->addChild(ui::label({
+        .out = &m_count,
+        .fontSize = Style::fontSizeCaption * scale,
+        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        .maxLines = 1,
+    }));
+    info->addChild(std::move(text));
+    info->addChild(ui::button({
         .out = &m_starButton,
         .glyph = "star",
         .variant = ButtonVariant::Ghost,
@@ -538,13 +619,7 @@ namespace okaru::wallpaper_picker {
         tr("settings.options.theme.source.community"),
         tr("settings.options.theme.source.custom"),
     };
-    auto controls = ui::row({
-        .align = FlexAlign::Center,
-        .gap = Style::spaceSm * scale,
-        .padding = Style::spaceXs * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceContainer, 0.85F),
-        .radius = Style::scaledRadiusLg(scale),
-    });
+    auto controls = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
     m_themeControls = controls.get();
     controls->addChild(ui::segmented({
         .out = &m_themeSegmented,
@@ -566,9 +641,8 @@ namespace okaru::wallpaper_picker {
         .onSelectionChanged = [this](std::size_t index, std::string_view) { setFavoritePalette(index); },
     }));
     controls->setVisible(false);
-    row->addChild(std::move(controls));
-    row->setZIndex(200);
-    return row;
+    info->addChild(std::move(controls));
+    return info;
   }
 
   void PickerWindow::beforeRender(Renderer& renderer) {
@@ -576,6 +650,10 @@ namespace okaru::wallpaper_picker {
     if (m_syncedIndex != m_carousel.index()) {
       syncFavoriteRow();
       m_syncedIndex = m_carousel.index();
+      if (!m_entries.empty()) {
+        m_name->setText(focusedPath().stem().string());
+        m_count->setText(std::format("{} / {}", m_carousel.index() + 1, m_entries.size()));
+      }
       if (!m_entries.empty() && focusedPath() != fs::path(m_app.config().getDefaultWallpaperPath())) {
         m_shellPreload.start(kShellPreloadDelay, [this] {
           if (m_phase == Phase::Open && !m_entries.empty()) {
@@ -583,7 +661,7 @@ namespace okaru::wallpaper_picker {
           }
         });
       }
-      m_root->layout(renderer); // la fila cambió de ancho (controles del favorito)
+      m_root->layout(renderer); // la barra cambió (nombre, controles del favorito)
     }
     layoutScene(&renderer);
     pumpPreload();
@@ -649,6 +727,7 @@ namespace okaru::wallpaper_picker {
       if (!used[c]) {
         releaseCard(m_cards[c]);
         m_cards[c].image->setVisible(false);
+        m_cards[c].placeholder->setVisible(false);
       }
     }
 
@@ -683,7 +762,13 @@ namespace okaru::wallpaper_picker {
       }
 
       // Orden de dibujo: slots() va de la más lejana a la central.
-      card.image->setZIndex(static_cast<std::int32_t>(s + 10));
+      card.placeholder->setZIndex(static_cast<std::int32_t>(s * 2 + 10));
+      card.image->setZIndex(static_cast<std::int32_t>(s * 2 + 11));
+      card.placeholder->setPosition(x, y);
+      card.placeholder->setSize(w, h);
+      card.placeholder->setRadius(radius);
+      card.placeholder->setOpacity(opacity);
+      card.placeholder->setVisible(card.texture == 0); // hasta que llega la miniatura
       card.image->setPosition(x, y);
       card.image->setSize(w, h);
       card.image->setRadius(radius);
@@ -709,33 +794,12 @@ namespace okaru::wallpaper_picker {
     m_toolbar->setPosition(centerX - m_toolbar->width() * 0.5F, Style::spaceLg * 2.0F * m_scale - slide);
     m_toolbar->setOpacity(textOpacity);
 
-    float y = centerY + cardH * 0.5F + rise + Style::spaceLg * m_scale;
     const bool empty = m_entries.empty();
-    if (!empty && renderer != nullptr) {
-      m_name->setText(m_entries[m_carousel.index()].stem().string());
-      m_name->setMaxWidth(cardW);
-      m_name->measure(*renderer);
-      m_count->setText(std::format("{} / {}", m_carousel.index() + 1, m_entries.size()));
-      m_count->measure(*renderer);
-    }
-    m_name->setPosition(centerX - m_name->width() * 0.5F, y);
-    y += m_name->height() + Style::spaceXs * m_scale;
-    m_count->setPosition(centerX - m_count->width() * 0.5F, y);
-    y += m_count->height() + Style::spaceSm * m_scale;
-    m_favoriteRow->setPosition(centerX - m_favoriteRow->width() * 0.5F, y);
-    for (Node* node : {static_cast<Node*>(m_name), static_cast<Node*>(m_count), m_favoriteRow}) {
-      node->setOpacity(textOpacity);
-      node->setVisible(!empty);
-      node->setZIndex(100);
-    }
-    m_favoriteRow->setZIndex(200);
-
-    if (renderer != nullptr) {
-      m_hint->measure(*renderer);
-    }
-    m_hint->setPosition(centerX - m_hint->width() * 0.5F, m_height - m_hint->height() - Style::spaceLg * 2.0F * m_scale);
-    m_hint->setOpacity(textOpacity);
-    m_hint->setZIndex(100);
+    m_infoCard->setVisible(!empty);
+    m_hintCard->setPosition(
+        centerX - m_hintCard->width() * 0.5F, m_height - m_hintCard->height() - Style::spaceLg * 2.0F * m_scale
+    );
+    m_hintCard->setOpacity(textOpacity);
 
     m_empty->setVisible(empty);
     if (empty && renderer != nullptr) {
@@ -772,7 +836,7 @@ namespace okaru::wallpaper_picker {
     releasePreload();
     m_preloadOrder = outwardOrder(m_entries.size(), m_carousel.index());
     m_preloadNext = 0;
-    pumpPreload();
+    // Sin pedir nada aún: el primer cuadro pide antes las tarjetas visibles (la cola de miniaturas es FIFO).
   }
 
   void PickerWindow::pumpPreload() {
@@ -784,7 +848,9 @@ namespace okaru::wallpaper_picker {
     const std::size_t first = index > kResidentRadius ? index - kResidentRadius : 0;
     const std::size_t end = std::min(m_entries.size(), index + kResidentRadius + 1);
     if (first != m_residentFirst || end != m_residentEnd) {
-      for (std::size_t i = first; i < end; ++i) {
+      // De dentro hacia fuera: las cercanas a la selección llegan antes.
+      for (const std::size_t offset : outwardOrder(end - first, index - first)) {
+        const std::size_t i = first + offset;
         if (i < m_residentFirst || i >= m_residentEnd) {
           (void)m_thumbnails.acquire(m_entries[i].string(), m_thumbPx);
         }
@@ -855,16 +921,14 @@ namespace okaru::wallpaper_picker {
     case Phase::Closing:
       m_openProgress = std::max(0.0F, m_openProgress - dt / kCloseMs);
       if (m_openProgress <= 0.0F) {
-        m_ticker.stop();
-        m_app.quit();
+        finish();
         return;
       }
       break;
     case Phase::Applying:
       m_applyProgress = std::min(1.0F, m_applyProgress + dt / kApplyMs);
       if (m_applyProgress >= 1.0F) {
-        m_ticker.stop();
-        m_app.quit();
+        finish();
         return;
       }
       break;
