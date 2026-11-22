@@ -1,0 +1,55 @@
+# Compila y prueba okaru-wallpaper-picker contra el núcleo publicado (okaru-core del repositorio [okaru]).
+name: verificacion
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  KEY_URL: https://raw.githubusercontent.com/MrAndyVF/okaru/main/packaging/keys/okaru.asc
+  KEY_FPR: 1043639C3CDC77859031AAADBDE4201B61FDE527
+  REPO_URL: https://github.com/MrAndyVF/okaru/releases/download/repo
+
+jobs:
+  compilacion-y-pruebas:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    env:
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 1G
+      CC_LD: mold
+      CXX_LD: mold
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repositorio [okaru] y dependencias
+        run: |
+          pacman -Syu --noconfirm --needed curl >/dev/null
+          curl -fsSL "$KEY_URL" -o /tmp/okaru.asc
+          gpg --show-keys --with-colons /tmp/okaru.asc | grep -q "^fpr:::::::::${KEY_FPR}:" \
+            || { echo "::error::La llave de [okaru] no coincide con la huella esperada."; exit 1; }
+          pacman-key --init >/dev/null 2>&1
+          pacman-key --add /tmp/okaru.asc >/dev/null
+          pacman-key --lsign-key "$KEY_FPR" >/dev/null
+          printf '\n[okaru]\nServer = %s\n' "$REPO_URL" >> /etc/pacman.conf
+          source packaging/arch/PKGBUILD
+          pacman -Sy --noconfirm --needed "${depends[@]}" "${makedepends[@]}" ccache mold >/dev/null
+          pacman -Q okaru-core
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Caché de compilación
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-verificacion-${{ github.sha }}
+          restore-keys: ccache-verificacion-
+      - name: Compilar
+        run: |
+          meson setup build -Dtests=enabled
+          meson compile -C build
+          ccache -s
+      - name: Pruebas
+        run: meson test -C build --print-errorlogs

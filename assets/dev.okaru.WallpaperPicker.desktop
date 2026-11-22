@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Wallpapers
+Name[es]=Fondos de pantalla
+GenericName=Wallpaper Picker
+GenericName[es]=Selector de fondos
+Comment=Browse your wallpapers in a carousel and apply one
+Comment[es]=Recorre tus fondos en un carrusel y aplica uno
+Keywords=wallpaper;background;desktop;theme;
+Keywords[es]=fondo;wallpaper;escritorio;tema;
+Exec=okaru-wallpaper-picker
+Icon=preferences-desktop-wallpaper
+Categories=Utility;
+StartupWMClass=dev.okaru.WallpaperPicker
+Terminal=false
