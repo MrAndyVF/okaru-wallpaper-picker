@@ -53,11 +53,9 @@ int main() {
       .appId = "dev.okaru.WallpaperPicker",
       .dataName = "wallpaper-picker",
       .titleKey = "apps.wallpaper-picker.title",
-      .width = 640.0F,
-      .height = 400.0F,
-      .minWidth = 320.0F,
-      .minHeight = 240.0F,
       .layer = true,
+      .fullscreen = true,
+      .backdropOtherOutputs = true,
   });
   okaru::wallpaper_picker::PickerWindow window(app);
   return app.run();

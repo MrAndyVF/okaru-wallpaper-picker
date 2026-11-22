@@ -11,11 +11,31 @@ namespace okaru::wallpaper_picker {
     constexpr float kDamping = 0.0268F;     // 2·√k (crítico), por ms; asienta en ~400 ms
     constexpr float kRestDistance = 0.001F;
     constexpr float kRestVelocity = 0.00001F;
-    // Las vecinas se encogen y se apagan con la distancia al centro.
+    // Las vecinas se encogen y se oscurecen con la distancia al centro.
     constexpr float kScaleStep = 0.18F;
     constexpr float kMinScale = 0.55F;
-    constexpr float kOpacityStep = 0.35F;
+    constexpr float kDimStep = 0.22F;
+    constexpr float kMinBrightness = 0.4F;
   } // namespace
+
+  std::vector<std::size_t> outwardOrder(std::size_t count, std::size_t start) {
+    std::vector<std::size_t> out;
+    if (count == 0) {
+      return out;
+    }
+    start = std::min(start, count - 1);
+    out.reserve(count);
+    out.push_back(start);
+    for (std::size_t step = 1; out.size() < count; ++step) {
+      if (start + step < count) {
+        out.push_back(start + step);
+      }
+      if (step <= start) {
+        out.push_back(start - step);
+      }
+    }
+    return out;
+  }
 
   void Carousel::setCount(std::size_t count) {
     m_count = count;
@@ -88,7 +108,7 @@ namespace okaru::wallpaper_picker {
           .index = static_cast<std::size_t>(i),
           .offset = offset,
           .scale = std::max(kMinScale, 1.0F - kScaleStep * distance),
-          .opacity = std::clamp(1.0F - kOpacityStep * distance, 0.0F, 1.0F),
+          .brightness = std::max(kMinBrightness, 1.0F - kDimStep * distance),
       });
     }
     std::ranges::sort(out, [](const CarouselSlot& a, const CarouselSlot& b) {

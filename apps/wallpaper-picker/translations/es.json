@@ -1,7 +1,9 @@
 {
   "apps": {
     "wallpaper-picker": {
-      "title": "Fondos de pantalla"
+      "title": "Fondos de pantalla",
+      "hint": "← → recorrer · Enter aplicar · Esc cerrar",
+      "empty": "No hay fondos en {dir}"
     }
   }
 }

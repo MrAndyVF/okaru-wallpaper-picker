@@ -1,7 +1,9 @@
 {
   "apps": {
     "wallpaper-picker": {
-      "title": "Wallpapers"
+      "title": "Wallpapers",
+      "hint": "← → browse · Enter apply · Esc close",
+      "empty": "No wallpapers in {dir}"
     }
   }
 }
