@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 class Box;
@@ -96,6 +97,9 @@ namespace okaru::wallpaper_picker {
     // Precarga: genera en segundo plano la miniatura de cada fondo (queda en la caché en disco) y mantiene en memoria
     // solo las de alrededor de la selección.
     void restartPreload();
+    // Deja en la caché en disco las miniaturas de toda la carpeta, al tamaño de tarjeta de cada pantalla, aunque el
+    // selector esté oculto (baja prioridad en el servicio). Una vez por carpeta y tamaño.
+    void warmFolder();
     void pumpPreload();
     void releasePreload();
     void startTicking();
@@ -149,6 +153,7 @@ namespace okaru::wallpaper_picker {
     float m_height = 0.0F;
     float m_scale = 1.0F;
     int m_thumbPx = 0;
+    std::unordered_set<std::string> m_warmedFolders;
     std::vector<std::size_t> m_preloadOrder;
     std::size_t m_preloadNext = 0;
     std::vector<std::string> m_preloadInFlight; // pedidas para la caché en disco, aún sin decodificar
