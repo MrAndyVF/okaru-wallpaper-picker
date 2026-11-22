@@ -231,6 +231,7 @@ namespace okaru::wallpaper_picker {
         m_all.push_back({.path = entry.absPath, .mtime = entry.mtime});
       }
     }
+    warmFolder();
     // La primera vez se abre sobre el fondo actual; después, sobre el que estaba enfocado.
     rearrange(m_firstScan ? fs::path(m_app.config().getDefaultWallpaperPath()) : focusedPath());
     m_firstScan = false;
@@ -831,6 +832,30 @@ namespace okaru::wallpaper_picker {
   }
 
   // ── Precarga ─────────────────────────────────────────────────────────────────────────────────────
+
+  void PickerWindow::warmFolder() {
+    for (const auto& output : m_app.outputs()) {
+      if (!output.done || output.logicalWidth <= 0) {
+        continue;
+      }
+      // El mismo tamaño que pide layoutScene: el ancho de la tarjeta central en píxeles de esa pantalla.
+      const int px = static_cast<int>(
+          std::lround(static_cast<float>(output.logicalWidth) * kCardWidthRatio * std::max(1.0F, output.configuredScale()))
+      );
+      const std::string key = std::format("{}|{}|{}", m_scanDir.string(), m_scanFlatten, px);
+      if (!m_warmedFolders.insert(key).second) {
+        continue;
+      }
+      // De dentro hacia fuera desde el fondo actual: lo primero que se verá al abrir.
+      const auto current = std::ranges::find_if(m_all, [&](const Wallpaper& w) {
+        return w.path == fs::path(m_app.config().getDefaultWallpaperPath());
+      });
+      const auto start = current != m_all.end() ? static_cast<std::size_t>(current - m_all.begin()) : 0;
+      for (const std::size_t i : outwardOrder(m_all.size(), start)) {
+        m_thumbnails.warmDiskCache(m_all[i].path.string(), px);
+      }
+    }
+  }
 
   void PickerWindow::restartPreload() {
     releasePreload();
