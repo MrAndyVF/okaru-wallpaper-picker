@@ -2,6 +2,24 @@
 
 Each version has an English and a Spanish section. / Cada versión tiene una sección en inglés y otra en español.
 
+## [1.0.1] - 2026-11-22
+
+### English
+
+#### Features
+- **Thumbnails are prepared in the background**: while it is hidden (started with the session), the picker caches on
+  disk the thumbnail of every wallpaper of its folder, at each screen's card size, nearest to the current wallpaper
+  first, so the first open already finds them. It uses OKARU's low-priority threads; later only new wallpapers are
+  processed. Released with OKARU 1.3.10.
+
+### Español
+
+#### Novedades
+- **Las miniaturas se preparan en segundo plano**: mientras está oculto (arranca con la sesión), el selector deja en la
+  caché en disco la miniatura de cada fondo de su carpeta, al tamaño de tarjeta de cada pantalla, empezando por las
+  cercanas al fondo actual, así que la primera apertura ya las encuentra. Usa los hilos de baja prioridad de OKARU;
+  después solo se procesan los fondos nuevos. Sale con OKARU 1.3.10.
+
 ## [1.0.0] - 2026-11-22
 
 ### English

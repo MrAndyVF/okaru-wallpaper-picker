@@ -1,6 +1,6 @@
 # okaru-wallpaper-picker: compila la rama main del checkout (OKARU_WALLPAPER_PICKER_REPO, por defecto ~/Projects/okaru-project/okaru-wallpaper-picker).
 pkgname=okaru-wallpaper-picker
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc='OKARU (郁): selector de fondos de pantalla en carrusel'
 arch=(x86_64)
