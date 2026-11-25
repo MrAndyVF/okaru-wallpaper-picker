@@ -46,6 +46,17 @@ jobs:
           path: .ccache
           key: ccache-verificacion-${{ github.sha }}
           restore-keys: ccache-verificacion-
+      - name: Núcleo sin publicar (opcional)
+        # Con un archivo .okaru-core-ref (una rama, etiqueta o commit de MrAndyVF/okaru) se compila ese núcleo y
+        # reemplaza al publicado: para fusionar una app que estrena API del núcleo antes de su release. El archivo se
+        # quita en la release de la app, cuando ese núcleo ya está publicado.
+        if: hashFiles('.okaru-core-ref') != ''
+        run: |
+          pacman -S --noconfirm --needed git >/dev/null
+          ref=$(head -n1 .okaru-core-ref | tr -d '[:space:]')
+          git clone --quiet https://github.com/MrAndyVF/okaru /tmp/okaru-src
+          git -C /tmp/okaru-src checkout --quiet "$ref"
+          cd /tmp/okaru-src && bash packaging/ci/instalar-nucleo.sh
       - name: Compilar
         run: |
           meson setup build -Dtests=enabled
